@@ -2,19 +2,20 @@ import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.widgets.Event;
-import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
 import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.TabFolder;
-import org.eclipse.swt.layout.RowData;
 import org.eclipse.swt.widgets.TabItem;
+import org.eclipse.swt.layout.FillLayout;
 
 public class Main {
+	public static final int ID_LENGTH = 3;
 
-	protected Shell shell;
+	protected static final String DISCONNECTED_TEXT = "---";
+	
+
+	protected Shell shlChatnk;
 	private TabFolder tabFolder;
 	private TabItem activeTabItem;
 
@@ -38,9 +39,9 @@ public class Main {
 	public void open() {
 		Display display = Display.getDefault();
 		createContents();
-		shell.open();
-		shell.layout();
-		while (!shell.isDisposed()) {
+		shlChatnk.open();
+		shlChatnk.layout();
+		while (!shlChatnk.isDisposed()) {
 			if (!display.readAndDispatch()) {
 				display.sleep();
 			}
@@ -51,13 +52,13 @@ public class Main {
 	 * Create contents of the window.
 	 */
 	protected void createContents() {
-		shell = new Shell();
-		shell.setSize(592, 500);
-		shell.setText("SWT Application");
-		shell.setLayout(new RowLayout(SWT.VERTICAL));
+		shlChatnk = new Shell();
+		shlChatnk.setSize(592, 500);
+		shlChatnk.setText("Chatník");
+		shlChatnk.setLayout(new FillLayout(SWT.HORIZONTAL));
 
-		Menu menu = new Menu(shell, SWT.BAR);
-		shell.setMenuBar(menu);
+		Menu menu = new Menu(shlChatnk, SWT.BAR);
+		shlChatnk.setMenuBar(menu);
 
 		MenuItem mntmConnection = new MenuItem(menu, SWT.CASCADE);
 		mntmConnection.setText("Connection");
@@ -71,11 +72,7 @@ public class Main {
 		MenuItem mntmDisconnect = new MenuItem(menu_1, SWT.NONE);
 		mntmDisconnect.setText("Disconnect");
 
-		MenuItem mntmCloseTab = new MenuItem(menu_1, SWT.NONE);
-		mntmCloseTab.setText("Close tab");
-
-		tabFolder = new TabFolder(shell, SWT.NONE);
-		tabFolder.setLayoutData(new RowData(578, 387));
+		tabFolder = new TabFolder(shlChatnk, SWT.NONE);
 
 		// LISTENERS
 		tabFolder.addSelectionListener(new SelectionAdapter() {
@@ -84,27 +81,35 @@ public class Main {
 			}
 		});
 
+		
+		
+		
 		// Connect listeners
 		mntmConnect.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
-				final Login loginDialog = new Login(shell, SWT.NONE);
+				final Login loginDialog = new Login(shlChatnk, SWT.NONE);
 
 				boolean ok = loginDialog.open();
 				if (ok) {
 					TabItem tabItem = new TabItem(tabFolder, SWT.NONE);
-					tabItem.setText("---");
+					tabItem.setText(DISCONNECTED_TEXT);
 
 					Tab tab = new Tab(tabFolder, SWT.NONE);
 					tabItem.setControl(tab);
 					activeTabItem = tabItem;
+					tabFolder.setSelection(activeTabItem);
 
+					// TODO check them
 					tab.connection = new Connection(loginDialog.getHost(),
-							Integer.parseInt(loginDialog.getPort()));
+							Integer.parseInt(loginDialog.getPort()),
+							loginDialog.getLoginName());
 					if (!tab.connection.connected)
 						return;
 
-					activeTabItem.setText(tab.connection.host + ":"
-							+ tab.connection.port);
+					
+					tab.updateTab();
+					activeTabItem.setText(tab.connection.getHost() + ":"
+							+ tab.connection.getPort());
 				}
 			}
 		});
@@ -115,19 +120,11 @@ public class Main {
 					return;
 
 				Tab tab = (Tab) activeTabItem.getControl();
-
-				if (tab.connection != null) {
+				
+				if (tab.connection != null)
 					tab.connection.disconnect();
-				}
-			}
-		});
-
-		mntmCloseTab.addSelectionListener(new SelectionAdapter() {
-			public void widgetSelected(SelectionEvent event) {
-				if (activeTabItem == null)
-					return;
-
-				// TODO that simply?
+				
+				tab.dispose();
 				activeTabItem.dispose();
 			}
 		});
