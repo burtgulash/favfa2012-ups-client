@@ -17,7 +17,7 @@ public class Main {
 
 	protected Shell shlChatnk;
 	private TabFolder tabFolder;
-	private TabItem activeTabItem;
+	private TabItem activeTabItem = null;
 
 	/**
 	 * Launch the application.
@@ -103,8 +103,10 @@ public class Main {
 					tab.connection = new Connection(loginDialog.getHost(),
 							Integer.parseInt(loginDialog.getPort()),
 							loginDialog.getLoginName());
-					if (!tab.connection.connected)
+					if (!tab.connection.connected) {
+						tab.dispose();
 						return;
+					}
 
 					
 					tab.updateTab();
@@ -121,10 +123,12 @@ public class Main {
 
 				Tab tab = (Tab) activeTabItem.getControl();
 				
-				if (tab.connection != null)
+				if (tab != null && tab.connection != null) {
+					tab.connection.send("LOGOUT");
 					tab.connection.disconnect();
+					tab.dispose();
+				}
 				
-				tab.dispose();
 				activeTabItem.dispose();
 			}
 		});

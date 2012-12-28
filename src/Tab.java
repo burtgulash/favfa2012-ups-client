@@ -7,9 +7,14 @@ import java.util.StringTokenizer;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.List;
+import org.eclipse.swt.custom.StyleRange;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
+import org.eclipse.swt.events.KeyAdapter;
+import org.eclipse.swt.events.KeyEvent;
+import org.eclipse.swt.events.SelectionAdapter;
+import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Text;
@@ -42,12 +47,14 @@ public class Tab extends Composite {
 		setLayout(gridLayout);
 
 		Label lblConnectionInfo = new Label(this, SWT.NONE);
-		lblConnectionInfo.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, false, 1, 1));
+		lblConnectionInfo.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true,
+				false, 1, 1));
 		lblConnectionInfo.setAlignment(SWT.CENTER);
 		lblConnectionInfo.setText("Connection Info");
 
 		Composite composite = new Composite(this, SWT.NONE);
-		composite.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 1, 1));
+		composite.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 1,
+				1));
 		GridLayout gl_composite = new GridLayout(2, false);
 		gl_composite.marginHeight = 0;
 		gl_composite.verticalSpacing = 0;
@@ -56,7 +63,8 @@ public class Tab extends Composite {
 		composite.setLayout(gl_composite);
 
 		Composite composite_1 = new Composite(composite, SWT.NONE);
-		GridData gd_composite_1 = new GridData(SWT.FILL, SWT.FILL, true, true, 1, 1);
+		GridData gd_composite_1 = new GridData(SWT.FILL, SWT.FILL, true, true,
+				1, 1);
 		gd_composite_1.widthHint = 332;
 		gd_composite_1.heightHint = 267;
 		composite_1.setLayoutData(gd_composite_1);
@@ -68,13 +76,15 @@ public class Tab extends Composite {
 		composite_1.setLayout(gl_composite_1);
 
 		chatWindow = new StyledText(composite_1, SWT.BORDER);
-		GridData gd_chatWindow = new GridData(SWT.FILL, SWT.FILL, true, true, 1, 1);
+		GridData gd_chatWindow = new GridData(SWT.FILL, SWT.FILL, true, true,
+				1, 1);
 		gd_chatWindow.widthHint = 305;
 		gd_chatWindow.heightHint = 214;
 		chatWindow.setLayoutData(gd_chatWindow);
 
 		Composite composite_2 = new Composite(composite_1, SWT.NONE);
-		GridData gd_composite_2 = new GridData(SWT.FILL, SWT.FILL, true, false, 1, 1);
+		GridData gd_composite_2 = new GridData(SWT.FILL, SWT.FILL, true, false,
+				1, 1);
 		gd_composite_2.heightHint = 63;
 		composite_2.setLayoutData(gd_composite_2);
 		GridLayout gl_composite_2 = new GridLayout(2, false);
@@ -91,14 +101,16 @@ public class Tab extends Composite {
 		text.setLayoutData(gd_text);
 
 		Button btnSend = new Button(composite_2, SWT.NONE);
-		GridData gd_btnSend = new GridData(SWT.FILL, SWT.FILL, false, true, 1, 1);
+		GridData gd_btnSend = new GridData(SWT.FILL, SWT.FILL, false, true, 1,
+				1);
 		gd_btnSend.widthHint = 68;
 		gd_btnSend.heightHint = 62;
 		btnSend.setLayoutData(gd_btnSend);
 		btnSend.setText("Send");
 
-		usersList = new List(composite, SWT.BORDER);
-		GridData gd_usersList = new GridData(SWT.FILL, SWT.FILL, false, true, 1, 1);
+		usersList = new List(composite, SWT.MULTI);
+		GridData gd_usersList = new GridData(SWT.FILL, SWT.FILL, false, true,
+				1, 1);
 		gd_usersList.widthHint = 148;
 		usersList.setLayoutData(gd_usersList);
 
@@ -106,6 +118,23 @@ public class Tab extends Composite {
 		usersUpdater.start();
 		chatUpdater = new ChatUpdater();
 		chatUpdater.start();
+		text.setFocus();
+
+		btnSend.addSelectionListener(new SelectionAdapter() {
+			public void widgetSelected(SelectionEvent e) {
+				if (usersList.getSelectionCount() > 0)
+					send_private();
+				else
+					send_all();
+			}
+		});
+
+		text.addKeyListener(new KeyAdapter() {
+			public void keyPressed(KeyEvent e) {
+				if (e.keyCode == SWT.CR)
+					send_all();
+			}
+		});
 
 		this.addDisposeListener(new DisposeListener() {
 			public void widgetDisposed(DisposeEvent event) {
@@ -122,11 +151,67 @@ public class Tab extends Composite {
 		});
 	}
 
+	protected void send_all() {
+		String message = text.getText().trim();
+		text.setText("");
+		text.setFocus();
+		if ("".equals(message))
+			return;
+
+		final String line = connection.getLoginName() + ": " + message;
+
+		connection.send("ALL_MSG " + message);
+
+		Display.getDefault().syncExec(new Runnable() {
+			public void run() {
+				if ("".equals(chatWindow.getText()))
+					chatWindow.insert(line);
+				else
+					chatWindow.append("\n" + line);
+			}
+		});
+	}
+
+	protected void send_private() {
+		String[] recipients = usersList.getSelection();
+		for (String recipient : recipients) {
+			String message = text.getText().trim();
+			text.setText("");
+			text.setFocus();
+			if ("".equals(message))
+				return;
+
+			final String line = connection.getLoginName() + " -> " + recipient
+					+ ": " + message;
+			final StyleRange sr = new StyleRange();
+			sr.length = line.length();
+			sr.fontStyle = SWT.BOLD;
+
+
+			connection.send("PRIV_MSG " + recipient + " " + message);
+
+			Display.getDefault().syncExec(new Runnable() {
+				public void run() {
+					String current = chatWindow.getText();
+					
+					sr.start = current.length();
+					if ("".equals(current))
+						chatWindow.insert(line);
+					else {
+						chatWindow.append("\n" + line);
+						sr.start++;
+					}
+					
+					chatWindow.setStyleRange(sr);
+				}
+			});
+		}
+	}
+
 	@Override
 	protected void checkSubclass() {
 		// Disable the check that prevents subclassing of SWT components
 	}
-
 
 	public void updateTab() {
 		usersUpdater.update();
@@ -164,8 +249,7 @@ public class Tab extends Composite {
 
 	private class ChatUpdater extends Thread {
 		private boolean doRun = true;
-		private final long MSG_UPDATE_INTERVAL = 1000;
-
+		private final long MSG_UPDATE_INTERVAL = 131;
 
 		public void end() {
 			doRun = false;
@@ -185,8 +269,7 @@ public class Tab extends Composite {
 
 		public synchronized void update() {
 			String msg = null;
-			System.out.println("Updating chat");
-			
+
 			if (connection != null && connection.connected) {
 				try {
 					synchronized (connection) {
@@ -196,23 +279,28 @@ public class Tab extends Composite {
 							System.err.println("timed out");
 						}
 					}
+					System.out.println(msg);
 					Response r = new Response(msg);
 					if (!r.isValid())
 						return;
-					
+
 					if (r.isUSERS()) {
 						StringTokenizer izer = new StringTokenizer(r.getData());
-							
+
 						final ArrayList<String> sorted = new ArrayList<String>();
 						while (izer.hasMoreTokens())
 							sorted.add(izer.nextToken());
 						Collections.sort(sorted);
-						
+
 						Display.getDefault().syncExec(new Runnable() {
 							public void run() {
+								String[] selected = usersList.getSelection();
+								
 								usersList.removeAll();
 								for (String u : sorted)
 									usersList.add(u);
+
+								usersList.setSelection(selected);
 							}
 						});
 					} else if (r.isALL_MSG()) {
@@ -223,34 +311,46 @@ public class Tab extends Composite {
 						String from = data.substring(0, c - 1);
 						String text = data.substring(c);
 						final String line = from + ": " + text;
-						
+
 						Display.getDefault().syncExec(new Runnable() {
 							public void run() {
-								if (!"".equals(chatWindow.getText()))
-									chatWindow.setText(chatWindow.getText() + "\n" + line);
+								if ("".equals(chatWindow.getText()))
+									chatWindow.insert(line);
 								else
-									chatWindow.setText(line);
+									chatWindow.append("\n" + line);
 							}
 						});
-						
+
 					} else if (r.isPRIV_MSG()) {
 						String data = r.getData();
 						int c = 0;
 						while (data.charAt(c++) != ' ')
 							;
 						String from = data.substring(0, c - 1);
+						String me = connection.getLoginName();
 						String text = data.substring(c);
-						final String line = from + ": " + text;
-						
+						final String line = from + " -> " + me + ": " + text;
+
+						final StyleRange sr = new StyleRange();
+						sr.length = line.length();
+						sr.fontStyle = SWT.BOLD;
+
 						Display.getDefault().syncExec(new Runnable() {
 							public void run() {
-								if (!"".equals(chatWindow.getText()))
-									chatWindow.setText(chatWindow.getText() + "\n" + line);
-								else
-									chatWindow.setText(line);
+								String current = chatWindow.getText();
+
+								sr.start = current.length();
+								if ("".equals(current))
+									chatWindow.insert(line);
+								else {
+									chatWindow.append("\n" + line);
+									sr.start++;
+								}
+
+								chatWindow.setStyleRange(sr);
 							}
 						});
-						
+
 					} else {
 						// TODO some error, response of no type
 					}
