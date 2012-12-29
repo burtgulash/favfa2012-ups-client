@@ -10,10 +10,7 @@ import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.layout.FillLayout;
 
 public class Main {
-	public static final int ID_LENGTH = 3;
-
 	protected static final String DISCONNECTED_TEXT = "---";
-	
 
 	protected Shell shlChatnk;
 	private TabFolder tabFolder;
@@ -81,9 +78,6 @@ public class Main {
 			}
 		});
 
-		
-		
-		
 		// Connect listeners
 		mntmConnect.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
@@ -103,15 +97,15 @@ public class Main {
 					tab.connection = new Connection(loginDialog.getHost(),
 							Integer.parseInt(loginDialog.getPort()),
 							loginDialog.getLoginName());
-					if (!tab.connection.connected) {
+
+					if (!tab.connection.connected()) {
+						activeTabItem.setText(tab.connection.connectionInfo());
 						tab.dispose();
 						return;
 					}
 
-					
 					tab.updateTab();
-					activeTabItem.setText(tab.connection.getHost() + ":"
-							+ tab.connection.getPort());
+					activeTabItem.setText(tab.connection.connectionInfo());
 				}
 			}
 		});
@@ -122,13 +116,13 @@ public class Main {
 					return;
 
 				Tab tab = (Tab) activeTabItem.getControl();
-				
+
 				if (tab != null && tab.connection != null) {
 					tab.connection.send("LOGOUT");
 					tab.connection.disconnect();
 					tab.dispose();
 				}
-				
+
 				activeTabItem.dispose();
 			}
 		});

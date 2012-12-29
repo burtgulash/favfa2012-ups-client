@@ -1,7 +1,8 @@
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.PrintStream;
+import java.net.ConnectException;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
@@ -14,9 +15,13 @@ public class Connection {
 	private String loginName;
 
 	private Socket s;
-	private PrintWriter w = null;
+	private PrintStream w = null;
 	private BufferedReader r = null;
-	boolean connected = false;
+
+	private boolean connected = false;
+	private String notConnectedInfo;
+
+	private ReconnectWorker rw;
 
 	Connection(String host, int port, String loginName) {
 		this.host = host;
@@ -27,25 +32,12 @@ public class Connection {
 		if (host == null || loginName == null)
 			return;
 
-		try {
-			s = new Socket(host, port);
-			s.setSoTimeout(TIMEOUT);
-			w = new PrintWriter(s.getOutputStream(), true);
-			r = new BufferedReader(new InputStreamReader(s.getInputStream()));
-
-			send("LOGIN " + loginName);
-			connected = "OK".equals(recv());
-		} catch (UnknownHostException e) {
-			e.printStackTrace();
-			return;
-		} catch (IOException e) {
-			e.printStackTrace();
-			return;
-		}
+		connect();
 	}
 
-	public void send(String s) {
-		w.println(s.trim());
+	public void send(String string) {
+		w.println(string.trim());
+		w.flush();
 	}
 
 	public String recv() throws IOException {
@@ -55,10 +47,23 @@ public class Connection {
 		} catch (SocketException e) {
 
 		}
-		
+
 		if (lineRead != null)
 			return lineRead.trim();
+
 		return null;
+	}
+
+	public boolean connected() {
+		return connected;
+	}
+
+	public String connectionInfo() {
+		if (connected())
+			return getHost() + ":" + getPort();
+		if (notConnectedInfo != null)
+			return notConnectedInfo;
+		return "---";
 	}
 
 	public String getHost() {
@@ -74,17 +79,80 @@ public class Connection {
 	}
 
 	void disconnect() {
-		if (connected) {
-			w.close();
+		if (rw != null) {
 			try {
-				r.close();
-				s.close();
-			} catch (IOException e) {
-				System.err.println("Disconnect: closing failed");
+				rw.end();
+				rw.join();
+			} catch (InterruptedException e) {
 			}
+		}
 
-			// TODO refresh users
-			// TODO refresh connection info
+		try {
+			if (w != null)
+				w.close();
+			if (r != null)
+				r.close();
+			if (s != null)
+				s.close();
+		} catch (IOException e) {
+			System.err.println("Disconnect: closing failed");
+		}
+
+		connected = false;
+	}
+
+	void reconnect() {
+		if (rw != null) {
+			rw.end();
+		}
+		
+		rw = new ReconnectWorker();
+		rw.start();
+	}
+
+	private void connect() {
+		try {
+			s = new Socket(host, port);
+			s.setSoTimeout(TIMEOUT);
+			w = new PrintStream(s.getOutputStream());
+			r = new BufferedReader(new InputStreamReader(s.getInputStream()));
+
+			send("LOGIN " + loginName);
+			connected = "OK".equals(recv());
+		} catch (ConnectException e) {
+			System.err.println("Connection refused");
+			notConnectedInfo = "Connection refused";
+		} catch (UnknownHostException e) {
+			System.err.println("Unknown host");
+			notConnectedInfo = "Unknown host";
+			return;
+		} catch (IOException e) {
+			System.err.println("Input/Output error");
+			notConnectedInfo = "Input/Output error";
+			return;
+		}
+	}
+
+	private class ReconnectWorker extends Thread {
+		private boolean doRun = true;
+		private final int RECONNECT_INTERVAL = 1000;
+
+		public void end() {
+			doRun = false;
+			interrupt();
+		}
+
+		public void run() {
+			while (doRun) {
+				connect();
+				if (connected)
+					break;
+
+				try {
+					Thread.sleep(RECONNECT_INTERVAL);
+				} catch (InterruptedException e) {
+				}
+			}
 		}
 	}
 }

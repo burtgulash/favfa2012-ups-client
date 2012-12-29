@@ -11,8 +11,10 @@ import org.eclipse.swt.custom.StyleRange;
 import org.eclipse.swt.custom.StyledText;
 import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
+import org.eclipse.swt.events.ModifyListener;
 import org.eclipse.swt.events.KeyAdapter;
 import org.eclipse.swt.events.KeyEvent;
+import org.eclipse.swt.events.ModifyEvent;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.widgets.Display;
@@ -26,6 +28,7 @@ public class Tab extends Composite {
 	private Text text;
 	private List usersList;
 	private StyledText chatWindow;
+	private Label lblConnectionInfo;
 
 	private UsersUpdater usersUpdater;
 	private ChatUpdater chatUpdater;
@@ -46,15 +49,20 @@ public class Tab extends Composite {
 		gridLayout.verticalSpacing = 0;
 		setLayout(gridLayout);
 
-		Label lblConnectionInfo = new Label(this, SWT.NONE);
-		lblConnectionInfo.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true,
-				false, 1, 1));
+		lblConnectionInfo = new Label(this, SWT.NONE);
 		lblConnectionInfo.setAlignment(SWT.CENTER);
+		GridData gd_lblConnectionInfo = new GridData(SWT.CENTER, SWT.CENTER,
+				true, false, 1, 1);
+		gd_lblConnectionInfo.heightHint = 26;
+		gd_lblConnectionInfo.widthHint = 461;
+		lblConnectionInfo.setLayoutData(gd_lblConnectionInfo);
 		lblConnectionInfo.setText("Connection Info");
 
 		Composite composite = new Composite(this, SWT.NONE);
-		composite.setLayoutData(new GridData(SWT.FILL, SWT.FILL, true, true, 1,
-				1));
+		GridData gd_composite = new GridData(SWT.FILL, SWT.FILL, true, true, 1,
+				1);
+		gd_composite.heightHint = 285;
+		composite.setLayoutData(gd_composite);
 		GridLayout gl_composite = new GridLayout(2, false);
 		gl_composite.marginHeight = 0;
 		gl_composite.verticalSpacing = 0;
@@ -75,12 +83,14 @@ public class Tab extends Composite {
 		gl_composite_1.horizontalSpacing = 0;
 		composite_1.setLayout(gl_composite_1);
 
-		chatWindow = new StyledText(composite_1, SWT.BORDER);
+		chatWindow = new StyledText(composite_1, SWT.BORDER | SWT.V_SCROLL);
 		GridData gd_chatWindow = new GridData(SWT.FILL, SWT.FILL, true, true,
 				1, 1);
 		gd_chatWindow.widthHint = 305;
 		gd_chatWindow.heightHint = 214;
 		chatWindow.setLayoutData(gd_chatWindow);
+		chatWindow.setWordWrap(true);
+		chatWindow.setWrapIndent(20);
 
 		Composite composite_2 = new Composite(composite_1, SWT.NONE);
 		GridData gd_composite_2 = new GridData(SWT.FILL, SWT.FILL, true, false,
@@ -108,7 +118,7 @@ public class Tab extends Composite {
 		btnSend.setLayoutData(gd_btnSend);
 		btnSend.setText("Send");
 
-		usersList = new List(composite, SWT.MULTI);
+		usersList = new List(composite, SWT.BORDER | SWT.MULTI);
 		GridData gd_usersList = new GridData(SWT.FILL, SWT.FILL, false, true,
 				1, 1);
 		gd_usersList.widthHint = 148;
@@ -136,76 +146,78 @@ public class Tab extends Composite {
 			}
 		});
 
+		chatWindow.addModifyListener(new ModifyListener() {
+			public void modifyText(ModifyEvent e) {
+				chatWindow.setTopIndex(chatWindow.getLineCount() - 1);
+			}
+		});
+
 		this.addDisposeListener(new DisposeListener() {
 			public void widgetDisposed(DisposeEvent event) {
-				try {
-					usersUpdater.end();
-					chatUpdater.end();
+				connection.disconnect();
 
-					chatUpdater.join();
-					usersUpdater.join();
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
+				usersUpdater.end();
+				chatUpdater.end();
 			}
 		});
 	}
 
 	protected void send_all() {
-		String message = text.getText().trim();
-		text.setText("");
-		text.setFocus();
-		if ("".equals(message))
-			return;
-
-		final String line = connection.getLoginName() + ": " + message;
-
-		connection.send("ALL_MSG " + message);
-
-		Display.getDefault().syncExec(new Runnable() {
-			public void run() {
-				if ("".equals(chatWindow.getText()))
-					chatWindow.insert(line);
-				else
-					chatWindow.append("\n" + line);
-			}
-		});
-	}
-
-	protected void send_private() {
-		String[] recipients = usersList.getSelection();
-		for (String recipient : recipients) {
+		if (connection.connected()) {
 			String message = text.getText().trim();
 			text.setText("");
 			text.setFocus();
 			if ("".equals(message))
 				return;
 
-			final String line = connection.getLoginName() + " -> " + recipient
-					+ ": " + message;
-			final StyleRange sr = new StyleRange();
-			sr.length = line.length();
-			sr.fontStyle = SWT.BOLD;
+			String line = connection.getLoginName() + ": " + message;
 
-
-			connection.send("PRIV_MSG " + recipient + " " + message);
-
-			Display.getDefault().syncExec(new Runnable() {
-				public void run() {
-					String current = chatWindow.getText();
-					
-					sr.start = current.length();
-					if ("".equals(current))
-						chatWindow.insert(line);
-					else {
-						chatWindow.append("\n" + line);
-						sr.start++;
-					}
-					
-					chatWindow.setStyleRange(sr);
-				}
-			});
+			addLine(line, false);
+			connection.send("ALL_MSG " + message);
 		}
+	}
+
+	protected void send_private() {
+		if (connection.connected()) {
+			String message = text.getText().trim();
+			text.setText("");
+			text.setFocus();
+			if ("".equals(message))
+				return;
+			
+			String[] recipients = usersList.getSelection();
+			for (String recipient : recipients) {
+				String line = connection.getLoginName() + " -> " + recipient
+						+ ": " + message;
+				addLine(line, true);
+
+				connection.send("PRIV_MSG " + recipient + " " + message);
+
+			}
+		}
+	}
+
+	protected void addLine(final String line, final boolean bold) {
+		final StyleRange sr = new StyleRange();
+		sr.length = line.length();
+		sr.fontStyle = SWT.BOLD;
+
+		Display.getDefault().syncExec(new Runnable() {
+			public void run() {
+				String current = chatWindow.getText();
+
+				sr.start = current.length();
+				if ("".equals(current))
+					chatWindow.insert(line);
+				else {
+					chatWindow.append("\n" + line);
+					sr.start++;
+				}
+
+				if (bold)
+					chatWindow.setStyleRange(sr);
+			}
+		});
 	}
 
 	@Override
@@ -213,7 +225,23 @@ public class Tab extends Composite {
 		// Disable the check that prevents subclassing of SWT components
 	}
 
+	protected void updateStatus() {
+		Display.getDefault().syncExec(new Runnable() {
+			public void run() {
+				if (lblConnectionInfo.isDisposed())
+					return;
+				
+				if (connection.connected())
+					lblConnectionInfo.setText("Connected to: " + connection.getLoginName() + "@"
+							+ connection.connectionInfo());
+				else
+					lblConnectionInfo.setText("Disconnected");
+			}
+		});
+	}
+
 	public void updateTab() {
+		updateStatus();
 		usersUpdater.update();
 		chatUpdater.update();
 	}
@@ -228,7 +256,7 @@ public class Tab extends Composite {
 		}
 
 		public synchronized void update() {
-			if (connection != null && connection.connected) {
+			if (connection != null && connection.connected()) {
 				synchronized (connection) {
 					connection.send("USERS");
 				}
@@ -270,16 +298,23 @@ public class Tab extends Composite {
 		public synchronized void update() {
 			String msg = null;
 
-			if (connection != null && connection.connected) {
+			if (connection != null && connection.connected()) {
 				try {
 					synchronized (connection) {
 						try {
 							msg = connection.recv();
 						} catch (SocketTimeoutException e) {
-							System.err.println("timed out");
+							return;
 						}
 					}
-					System.out.println(msg);
+
+					// Server down
+					if (msg == null) {
+						connection.disconnect();
+						connection.reconnect();
+					}
+					updateStatus();
+
 					Response r = new Response(msg);
 					if (!r.isValid())
 						return;
@@ -295,7 +330,7 @@ public class Tab extends Composite {
 						Display.getDefault().syncExec(new Runnable() {
 							public void run() {
 								String[] selected = usersList.getSelection();
-								
+
 								usersList.removeAll();
 								for (String u : sorted)
 									usersList.add(u);
@@ -310,17 +345,9 @@ public class Tab extends Composite {
 							;
 						String from = data.substring(0, c - 1);
 						String text = data.substring(c);
-						final String line = from + ": " + text;
+						String line = from + ": " + text;
 
-						Display.getDefault().syncExec(new Runnable() {
-							public void run() {
-								if ("".equals(chatWindow.getText()))
-									chatWindow.insert(line);
-								else
-									chatWindow.append("\n" + line);
-							}
-						});
-
+						addLine(line, false);
 					} else if (r.isPRIV_MSG()) {
 						String data = r.getData();
 						int c = 0;
@@ -329,34 +356,15 @@ public class Tab extends Composite {
 						String from = data.substring(0, c - 1);
 						String me = connection.getLoginName();
 						String text = data.substring(c);
-						final String line = from + " -> " + me + ": " + text;
+						String line = from + " -> " + me + ": " + text;
 
-						final StyleRange sr = new StyleRange();
-						sr.length = line.length();
-						sr.fontStyle = SWT.BOLD;
-
-						Display.getDefault().syncExec(new Runnable() {
-							public void run() {
-								String current = chatWindow.getText();
-
-								sr.start = current.length();
-								if ("".equals(current))
-									chatWindow.insert(line);
-								else {
-									chatWindow.append("\n" + line);
-									sr.start++;
-								}
-
-								chatWindow.setStyleRange(sr);
-							}
-						});
-
+						addLine(line, true);
 					} else {
-						// TODO some error, response of no type
+						System.err.println("Invalid response type");
 					}
 
 				} catch (IOException e) {
-					e.printStackTrace();
+					System.err.println("Received input/Output error.");
 				}
 			}
 		}
