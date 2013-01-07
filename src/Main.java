@@ -8,6 +8,8 @@ import org.eclipse.swt.widgets.MenuItem;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.swt.layout.FillLayout;
+import org.eclipse.swt.events.DisposeEvent;
+import org.eclipse.swt.events.DisposeListener;
 
 public class Main {
 	protected static final String DISCONNECTED_TEXT = "---";
@@ -72,6 +74,23 @@ public class Main {
 		tabFolder = new TabFolder(shlChatnk, SWT.NONE);
 
 		// LISTENERS
+		shlChatnk.addDisposeListener(new DisposeListener() {
+			public void widgetDisposed(DisposeEvent event) {
+				for (TabItem ti : tabFolder.getItems()) {
+					if (ti == null)
+						continue;
+
+					Tab tab = (Tab) ti.getControl();
+
+					if (tab != null && tab.connection != null) {
+						tab.connection.send("LOGOUT");
+						tab.connection.disconnect();
+						tab.dispose();
+					}
+				}
+			}
+		});
+
 		tabFolder.addSelectionListener(new SelectionAdapter() {
 			public void widgetSelected(SelectionEvent event) {
 				activeTabItem = tabFolder.getSelection()[0];
