@@ -51,7 +51,7 @@ public class Main {
 	protected void createContents() {
 		shlChatnk = new Shell();
 		shlChatnk.setSize(592, 500);
-		shlChatnk.setText("Chatník");
+		shlChatnk.setText("Chatnik");
 		shlChatnk.setLayout(new FillLayout(SWT.HORIZONTAL));
 
 		Menu menu = new Menu(shlChatnk, SWT.BAR);
