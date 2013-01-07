@@ -88,6 +88,8 @@ public class Main {
 						tab.dispose();
 					}
 				}
+
+				System.exit(0);
 			}
 		});
 

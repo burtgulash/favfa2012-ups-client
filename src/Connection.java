@@ -79,13 +79,8 @@ public class Connection {
 	}
 
 	void disconnect() {
-		if (rw != null) {
-			try {
-				rw.end();
-				rw.join();
-			} catch (InterruptedException e) {
-			}
-		}
+		if (rw != null)
+			rw.end();
 
 		try {
 			if (w != null)
