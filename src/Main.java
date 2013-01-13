@@ -119,7 +119,8 @@ public class Main {
 							Integer.parseInt(loginDialog.getPort()),
 							loginDialog.getLoginName());
 
-					if (!tab.connection.connected()) {
+					if (tab.connection.failed() || !tab.connection.connected()) 
+					{
 						activeTabItem.setText(tab.connection.connectionInfo());
 						tab.dispose();
 						return;

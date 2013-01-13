@@ -22,15 +22,27 @@ public class Connection {
 	private String notConnectedInfo;
 
 	private ReconnectWorker rw;
+	private boolean failed = false;
+
+	public boolean failed() {
+		return failed;
+	}
 
 	Connection(String host, int port, String loginName) {
 		this.host = host;
 		this.port = port;
+		if (loginName == null || "".equals(loginName)) {
+			failed = true;
+			return;
+		}
+
 		StringTokenizer izer = new StringTokenizer(loginName);
 		this.loginName = izer.nextToken();
 
-		if (host == null || loginName == null)
+		if (host == null || this.loginName == null) {
+			failed = true;
 			return;
+		}
 
 		connect();
 	}
@@ -117,13 +129,16 @@ public class Connection {
 		} catch (ConnectException e) {
 			System.err.println("Connection refused");
 			notConnectedInfo = "Connection refused";
+			failed = true;
 		} catch (UnknownHostException e) {
 			System.err.println("Unknown host");
 			notConnectedInfo = "Unknown host";
+			failed = true;
 			return;
 		} catch (IOException e) {
 			System.err.println("Input/Output error");
 			notConnectedInfo = "Input/Output error";
+			failed = true;
 			return;
 		}
 	}
