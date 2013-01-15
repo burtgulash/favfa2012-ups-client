@@ -91,6 +91,8 @@ public class Connection {
 	}
 
 	void disconnect() {
+		send("LOGOUT");
+
 		if (rw != null)
 			rw.end();
 

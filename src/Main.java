@@ -83,7 +83,6 @@ public class Main {
 					Tab tab = (Tab) ti.getControl();
 
 					if (tab != null && tab.connection != null) {
-						tab.connection.send("LOGOUT");
 						tab.connection.disconnect();
 						tab.dispose();
 					}
@@ -140,7 +139,6 @@ public class Main {
 				Tab tab = (Tab) activeTabItem.getControl();
 
 				if (tab != null && tab.connection != null) {
-					tab.connection.send("LOGOUT");
 					tab.connection.disconnect();
 					tab.dispose();
 				}
